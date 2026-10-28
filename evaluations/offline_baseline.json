@@ -1,0 +1,14 @@
+{
+  "mode": "offline-deterministic",
+  "provider": null,
+  "model": null,
+  "runs": 3,
+  "metrics": {
+    "agent_success_rate": 1.0,
+    "rag_accuracy": 1.0,
+    "baseline_accuracy": 0.0,
+    "retrieval_recall_at_3": 1.0,
+    "citation_validity": 1.0,
+    "retrieval_accuracy_gain": 1.0
+  }
+}

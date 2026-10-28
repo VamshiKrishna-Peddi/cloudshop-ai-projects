@@ -1,159 +1,187 @@
-# Turborepo starter
+# CloudShop AI Projects
 
-This Turborepo starter is maintained by the Turborepo core team.
+Two Python projects built around a small fictional shop, with runnable offline demos, local Ollama models plus optional OpenAI and Anthropic integrations, and repeatable evaluations. Python 3.11+ is required. The implementation uses the standard library: no pip installation, database, or API key is needed for offline development.
 
-## Using this example
+## Transfer the complete project to your Mac with GitHub
 
-Run the following command:
+The project is prepared locally in this workspace. Creating a private repository and pushing require your approval; preparing a commit does not upload files. Cloning the existing remote does not include these changes until they are pushed.
 
-```sh
-npx create-turbo@latest
+After the approved private repository has been created and the project pushed, install GitHub CLI on your Mac and authenticate using the browser flow (never paste tokens into chat):
+
+```bash
+brew install git gh python
+gh auth login --hostname github.com --git-protocol https --web
 ```
 
-## What's inside?
+Then clone the private repository. Replace `YOUR_USERNAME/YOUR_PRIVATE_REPOSITORY` with the exact repository name provided after the approved push. Use a new destination if this directory already contains files:
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+mkdir -p "$HOME/cloudshop-local"
+gh repo clone YOUR_USERNAME/YOUR_PRIVATE_REPOSITORY "$HOME/cloudshop-local/cloudshop"
+cd "$HOME/cloudshop-local/cloudshop"
+python3 --version  # Python 3.11+
+python3 -m unittest discover -s tests -v
 ```
 
-Without global `turbo`, use your package manager:
+Keep using this directory for the application commands below. The repository includes both Python projects, examples, tests, documentation, and the existing JavaScript workspace. Python dependencies are all in the standard library; no pip installation is required. API keys, local environment files, dependencies, caches, and generated reports must remain untracked. Ollama models are installed separately on your Mac, not stored in Git.
 
-```sh
-cd my-turborepo
-npx turbo build
-npm exec turbo build
-npm exec turbo build
+## Free local models on macOS (Ollama)
+
+Use a Mac supported by the current Ollama release (macOS 14+; Apple Silicon is recommended). Allow several GB of disk space for model downloads and enough available RAM to load the model; 8 GB is a practical starting point for the default 3B model, with more RAM improving headroom. No API subscription or key is required. Internet access is needed for installation and the initial model downloads; subsequent local inference can run without Internet access.
+
+If Ollama is already running with both models installed, skip installation and downloads and start with step 4. Your Mac’s `localhost` is separate from this cloud workspace; run the applications on your Mac to reach its Ollama server.
+
+1. Install Homebrew using the instructions at https://brew.sh if it is not already installed. Then install Python and Ollama:
+
+   ```bash
+   brew install python ollama
+   python3 --version  # must be 3.11 or newer
+   ```
+
+2. Start the local server in a terminal and leave it running:
+
+   ```bash
+   ollama serve
+   ```
+
+   Alternatively, use `brew services start ollama` to run it in the background. Choose one startup method. If the official Ollama app is already running, it provides the server; do not start another copy. Default address: `http://localhost:11434`.
+
+3. In another terminal, download and verify both models:
+
+   ```bash
+   ollama pull llama3.2
+   ollama pull nomic-embed-text
+   ollama list
+   curl http://localhost:11434/api/tags
+   ```
+
+4. Clone the approved private repository as described above. No pip dependencies or virtual environment are required:
+
+   ```bash
+   cd "$HOME/cloudshop-local/cloudshop"
+   python3 -m unittest discover -s tests -v
+   ```
+
+5. Run the task agent with local llama3.2:
+
+   ```bash
+   python3 -m ai_projects agent --demo --provider ollama --model llama3.2 \
+     --ollama-url http://localhost:11434
+   cat .local/agent/report.md
+   ```
+
+   This keeps the same list/read/write/HTTPS tool loop. JSON mode constrains local model actions to the existing tool protocol. For a custom task:
+
+   ```bash
+   python3 -m ai_projects agent --provider ollama --model llama3.2 \
+     --workspace .local/agent --task "Read inventory.csv and write a summary to summary.md."
+   ```
+
+6. Run RAG with local generation and semantic embeddings:
+
+   ```bash
+   python3 -m ai_projects rag "What is the return window?" \
+     --provider ollama --model llama3.2 --embedding-model nomic-embed-text \
+     --ollama-url http://localhost:11434 \
+     --corpus examples/knowledge --index .local/ollama-index.json
+   ```
+
+   Reuse the saved document vectors on later questions (query embedding and generation still require the server):
+
+   ```bash
+   python3 -m ai_projects rag "How long does express shipping take?" \
+     --provider ollama --model llama3.2 --embedding-model nomic-embed-text \
+     --ollama-url http://localhost:11434 \
+     --load-index --index .local/ollama-index.json
+   ```
+
+7. Run repeated local-model evaluations and compare a future run:
+
+   ```bash
+   python3 -m ai_projects evaluate --provider ollama --model llama3.2 \
+     --embedding-model nomic-embed-text --runs 3 --output .local/ollama-baseline.json
+   python3 -m ai_projects evaluate --provider ollama --model llama3.2 \
+     --embedding-model nomic-embed-text --runs 3 \
+     --baseline .local/ollama-baseline.json --output .local/ollama-current.json
+   ```
+
+   Evaluations use the local model for the agent and for RAG with/without retrieval. They may take several minutes. A quality failure returns exit status 1 and still saves the detailed report; this is not necessarily a setup failure. Small models can produce incorrect actions or answers. Compare local results only with a baseline using the same generation and embedding models. The checked-in offline baseline is for deterministic tests, not for Ollama.
+
+Local generation defaults to `llama3.2`; embeddings default to `nomic-embed-text` whenever `--provider ollama` is selected. The default provider remains `offline` to keep tests and demos independent of a server. There is no paid-provider fallback. Set `--ollama-url http://localhost:11434` (or `OLLAMA_HOST` with a full local HTTP URL) if needed; only loopback hosts are supported. `OLLAMA_MODEL` can override the local generation default. No API key is read by the Ollama adapters, and local traffic bypasses inherited HTTP proxies.
+
+Troubleshooting: connection errors mean the server is unavailable; start it and verify `/api/tags`. HTTP 404 generally means a missing model; repeat the matching `ollama pull`. The first request may be slow while loading a model. If requests time out, close memory-heavy applications and inspect `ollama ps`. Stop a loaded model with `ollama stop llama3.2`; stop a foreground server with Ctrl+C or a background service with `brew services stop ollama`. If an index type/model mismatch is reported, rebuild without `--load-index`. Rebuild after changing documents, embedding model weights, or embedding dimensions. Keep separate files for TF-IDF (`.local/index.json`) and Ollama (`.local/ollama-index.json`) indices.
+
+The tests mock Ollama's HTTP responses, so they do not download models or prove inference quality on your Mac. Live local inference has not been validated in this cloud workspace.
+
+## Quick start (deterministic offline demos)
+
+Run from the repository root:
+
+```bash
+python3 -m ai_projects agent --demo
+python3 -m ai_projects rag "How long does express shipping take?" --index .local/index.json
+python3 -m ai_projects evaluate --runs 3 --output .local/baseline.json
+python3 -m unittest discover -s tests -v
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+The agent reads a CSV, identifies low-stock products, and writes `.local/agent/report.md`. The RAG command retrieves a shipping policy and answers with a chunk citation. Evaluation results include per-case outputs and aggregate metrics in JSON. Generated files stay in the ignored `.local/` directory.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Project 1: AI agent for task automation
 
-```sh
-turbo build --filter=docs
+Implementation: [`ai_projects/task_agent`](ai_projects/task_agent). [Project guide](ai_projects/task_agent/README.md).
+
+The agent repeatedly asks a model for an action, executes a tool, supplies the observation, and lets the model choose the next action. It supports listing files, reading and writing workspace files, and fetching JSON from explicitly allowed HTTPS hosts. The loop has a step limit, records tool outcomes, and can recover from malformed actions. The sample task produces a reorder report from inventory data.
+
+For free local custom tasks use Ollama as above. The existing optional paid adapters are retained unchanged; use them only if you explicitly choose to:
+
+```bash
+# Supply OPENAI_API_KEY securely in your execution environment first.
+python3 -m ai_projects agent --demo --provider openai
+# Supply ANTHROPIC_API_KEY securely for Claude.
+python3 -m ai_projects agent --demo --provider anthropic
+python3 -m ai_projects agent --provider openai --workspace .local/agent \
+  --task "Read inventory.csv and write a summary to summary.md."
 ```
 
-Without global `turbo`:
+Model IDs can be selected with `--model`, `OPENAI_MODEL`, or `ANTHROPIC_MODEL`. Defaults are `gpt-4.1-mini` and `claude-sonnet-4-5`; availability depends on your API account. Provider adapters call the HTTPS APIs directly rather than depending on SDKs. Network settings must permit `api.openai.com` or `api.anthropic.com`. API calls can incur charges.
 
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
+Offline mode uses a fixed inventory policy to demonstrate the same tool loop. It is not an LLM and does not support arbitrary tasks. A final model response is a completion claim, not proof that the task succeeded; evaluations inspect the resulting artifact independently.
+
+## Project 2: retrieval augmented generation
+
+Implementation: [`ai_projects/rag`](ai_projects/rag). [Project guide](ai_projects/rag/README.md).
+
+Markdown/text documents are chunked with overlap and ranked by cosine similarity. Ollama mode uses normalized `nomic-embed-text` dense embeddings with separate search-document/query prefixes; offline and existing paid-provider modes retain TF-IDF vectors. Retrieved chunks are supplied to the selected model, which is instructed to answer only from context and cite chunk IDs. Offline mode selects a relevant sentence instead of generating text with an LLM. Offline mode uses lexical vector search; Ollama mode uses neural embeddings.
+
+```bash
+python3 -m ai_projects rag "What is the return window?" --provider anthropic
+python3 -m ai_projects rag "What is the return window?" --corpus examples/knowledge --index .local/index.json
+python3 -m ai_projects rag "What is the return window?" --load-index --index .local/index.json
+python3 -m ai_projects rag "What is the return window?" --no-retrieval
 ```
 
-### Develop
+## Evaluations and regressions
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+python3 -m ai_projects evaluate --runs 3 --output .local/baseline.json
+python3 -m ai_projects evaluate --runs 3 --baseline .local/baseline.json --output .local/current.json
+# Optional paid end-to-end model experiment:
+python3 -m ai_projects evaluate --provider openai --runs 3 --output .local/openai.json
 ```
 
-Without global `turbo`, use your package manager:
+CI compares each run against the checked-in `evaluations/offline_baseline.json`, generated from the verified offline fixture run. Update that baseline deliberately when changing expected behavior.
 
-```sh
-cd my-turborepo
-npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
-```
+The agent evaluation checks the saved report for required products, quantities, total, and absence of the in-stock product. RAG evaluation uses five expected-answer fixtures, measuring answer accuracy, source retrieval recall@3, and citation validity. Each question runs with and without retrieval to measure the observed accuracy difference. Regression comparison checks quality metrics against a saved result from the same mode/provider/model; `--tolerance` permits a specified absolute decrease. Exit status is 1 on a failed quality check or regression and 2 on a configuration/request error.
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Offline fixture evaluations pass at 100% on this tiny dataset; the no-context offline baseline always abstains. This validates wiring and deterministic fixtures, **not real LLM accuracy or a generalizable improvement**. Live model accuracy, latency, cost, prompt injection resistance, and broader task coverage require separate measurements. Citation validation checks IDs, not whether a citation truly supports an answer. Expected-substring scoring is intentionally simple and can miss subtle errors.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Layout
 
-```sh
-turbo dev --filter=web
-```
+- `ai_projects/task_agent/`: tool loop and tool implementations.
+- `ai_projects/rag/`: index persistence, retrieval, and answer generation.
+- `ai_projects/providers.py`: OpenAI and Anthropic HTTP adapters.
+- `ai_projects/evaluate.py`, `evaluations/`: metrics and fixtures.
+- `examples/`: sample CSV and fictional knowledge documents.
+- `tests/`: offline unit and integration tests; API adapters are tested with mocked responses.
 
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+The existing `packages/` JavaScript UI/configuration workspace is preserved. Its checks use Node >=24 and npm 11.17.0 (`npm run lint`, `npm run check-types`). There are no storefront apps in this checkout.

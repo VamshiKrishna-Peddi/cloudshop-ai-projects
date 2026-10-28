@@ -1,0 +1,13 @@
+# Retrieval augmented generation prototype
+
+Run `python3 -m ai_projects rag "What is the support email address?"` from the repository root. The output includes the answer, ranked source chunks, cosine scores, citation IDs, and any invalid citation IDs.
+
+With `--provider ollama`, generation defaults to llama3.2 and retrieval uses nomic-embed-text embeddings from the local /api/embed endpoint. Run `ollama pull llama3.2` and `ollama pull nomic-embed-text`, then `python3 -m ai_projects rag "What is the return window?" --provider ollama --index .local/ollama-index.json`. See the root README for complete macOS installation. Dense document vectors are normalized, saved in version-2 indices with model metadata, and searched using a normalized query vector and cosine similarity. Model mismatches are rejected on load. Document and query prefixes follow Nomic's search conventions.
+
+The original offline/paid-provider pipeline reads `.md` and `.txt` files, splits them into 100-word chunks with 20-word overlap, and builds sparse TF-IDF vectors normalized to unit length. Query vectors use the same vocabulary and IDF weights. Cosine similarity retrieves up to three positive-scoring chunks. `--top-k` changes this count. An out-of-vocabulary query retrieves nothing.
+
+`--index .local/index.json` saves chunk data in a versioned JSON file. `--load-index` reloads it and reconstructs the exact vector space. Rebuild the index after document changes. Indices and evaluation outputs contain corpus text; keep private documents out of public artifacts. This is an in-memory educational index, suitable for small corpora rather than production-scale search.
+
+Ollama mode sends the question and context only to the local llama3.2 model, with no paid fallback. Existing API mode sends the question and retrieved context to OpenAI or Claude with a grounding/citation instruction. No-context mode uses the same API model and question without retrieved chunks. Offline mode extracts the sentence with greatest query-token overlap and abstains when no chunks are retrieved; it cannot reason or reliably detect questions unsupported by lexically similar context.
+
+The evaluation fixture contains five questions with expected answer substrings and expected source documents. Metrics include answer accuracy, no-context accuracy, retrieval accuracy gain, retrieval recall@3, and citation ID validity. These fixtures are deliberately small. Expand the corpus and held-out questions before claiming accuracy improvements; measure unsupported questions and semantic faithfulness separately. Valid citation IDs alone do not establish factual grounding.

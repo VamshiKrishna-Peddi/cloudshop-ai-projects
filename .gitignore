@@ -36,3 +36,26 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Python AI projects
+__pycache__/
+*.py[cod]
+.venv/
+.local/
+*.egg-info/
+
+# Local secrets and Python tooling
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+htmlcov/
+venv/

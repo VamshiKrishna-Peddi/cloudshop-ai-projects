@@ -1,0 +1,7 @@
+[
+  {"question":"How long does standard shipping take?", "expected":"5 business days", "source":"shipping.md"},
+  {"question":"How long does express shipping take?", "expected":"2 business days", "source":"shipping.md"},
+  {"question":"What is the return window?", "expected":"30 days", "source":"returns.md"},
+  {"question":"What is the support email address?", "expected":"help@cloudshop.example", "source":"support.md"},
+  {"question":"How long do product warranties last?", "expected":"12 months", "source":"support.md"}
+]
