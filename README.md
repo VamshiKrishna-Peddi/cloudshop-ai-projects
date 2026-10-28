@@ -1,6 +1,59 @@
 # CloudShop AI Projects
 
-Two Python projects built around a small fictional shop, with runnable offline demos, local Ollama models plus optional OpenAI and Anthropic integrations, and repeatable evaluations. Python 3.11+ is required. The implementation uses the standard library: no pip installation, database, or API key is needed for offline development.
+Two Python projects built around a small fictional shop, with runnable offline demos, local Ollama models plus optional OpenAI and Anthropic integrations, and repeatable evaluations. Python 3.11+ is required. The CLI core uses the standard library. The optional browser workspace uses Streamlit and pypdf from `requirements.txt`. No paid API key or database is required for local Ollama use.
+
+## CloudShop AI Workspace — browser app on macOS
+
+The Streamlit dashboard contains **RAG Assistant** and **AI Agent** pages with sidebar navigation and Ollama/model status. It uses the existing `Agent`, `Tools`, `OllamaModel`, `OllamaEmbeddings`, `SemanticIndex`, and RAG answer pipeline. No paid providers are used by the browser app.
+
+From your local project checkout (for example `~/cloudshop-ai-projects`):
+
+```bash
+cd "$HOME/cloudshop-ai-projects"  # adjust if you cloned elsewhere
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+ollama list
+```
+
+Make sure `llama3.2` and `nomic-embed-text` are installed. If needed:
+
+```bash
+ollama pull llama3.2
+ollama pull nomic-embed-text
+```
+
+Keep Ollama running (`ollama serve` in a separate terminal if it is not already running), then start the UI from the repository root:
+
+```bash
+source .venv/bin/activate
+python -m streamlit run streamlit_app.py --server.address localhost --server.port 8501
+```
+
+Open **http://localhost:8501** in your Mac browser. The app connects only to **http://localhost:11434**, explicitly uses `llama3.2` for generation/tool actions, and `nomic-embed-text` for embeddings. Click **Refresh Ollama status** after starting Ollama or downloading a model. The browser app and Ollama must run on the same machine. Stop Streamlit with Ctrl+C. If port 8501 is occupied, stop the other process before restarting.
+
+**RAG Assistant:** upload TXT, Markdown (`.md`), or text-based PDF documents, then click **Build knowledge library**. Ask questions in the chat and expand the source panel to inspect cited chunk IDs, extracted text, and cosine similarity scores. The existing 100-word/20-word-overlap chunking and dense-vector retrieval are reused. Each question is answered independently; chat history is displayed but is not used to resolve follow-up pronouns. Changing uploaded files clears the prior index and conversation. Rebuilding is explicit and a failed rebuild removes the previous index.
+
+Up to 10 documents, 5 MB each, 100 PDF pages, 500,000 extracted characters per document, and 1,000,000 combined characters are accepted. Password-protected PDFs, scanned PDFs without OCR, empty text, malformed files, and unsupported formats produce actionable errors. PDF citations identify the file and chunk offset, not page numbers. Uploaded paths are normalized and duplicate names receive distinct source IDs.
+
+The minimum retrieval score defaults to 0.30 and is adjustable. If no chunk meets it, the app abstains without asking the model to guess. Uncited answers, invalid citation IDs, and recognized model abstentions are shown as unsupported. Similarity and valid citation IDs are **not proof of factual support**; verify answers against source text. These are useful prototype checks, not a semantic entailment verifier.
+
+**AI Agent:** upload a UTF-8 CSV with `product,stock,reorder_level` headers (use **Download sample CSV**), enter a task, and click **Run inventory agent**. Preview rows and calculated order quantities before execution. Each run invokes the existing bounded agent with Ollama in a fresh temporary workspace, shows its tool results/errors, and provides a Markdown report download. The requested task can guide analysis; this page always also asks for the standard reorder report. Only that report is available for download. Step details appear after execution finishes, not as a live stream.
+
+Reorder arithmetic is shared Python logic: `max(0, reorder_level - stock)`, with products at or above their reorder level excluded from the report. Blank/duplicate product names, missing/duplicate headers, malformed rows, negative/fractional/nonnumeric values, and inventories over 64 KB are rejected. A deterministic `inventory_report` tool writes the report. The UI keeps input read-only, rejects model-written report contents with incorrect quantities, and validates the saved report before displaying/downloading it. An agent completion claim without a verified report is shown as incomplete. If a later model request fails, completed tool steps and any verified report remain available.
+
+Documents, vectors, conversation, and output are session-local; no shared vector database or paid service is used. Temporary extraction/agent directories are cleaned up. RAG indices and results stay in Streamlit session memory until cleared, replaced, or the session ends. Traces can contain uploaded content. Streamlit usage telemetry is disabled and the server binds to localhost by default. This is a local development UI, with no authentication or production deployment configuration.
+
+Run all tests and offline evaluations in the activated virtual environment:
+
+```bash
+python -m unittest discover -s tests -v
+python -m ai_projects evaluate --runs 3 --baseline evaluations/offline_baseline.json
+```
+
+Tests cover the existing CLI/providers plus PDF/text extraction, semantic-index integration, abstention/citations, CSV validation, calculation boundaries, agent tool recovery and report integrity. Streamlit AppTest exercises page navigation, uploads, chat/sources, document-change invalidation, and report downloads. Model calls are mocked in tests; no paid API or downloaded LLM is needed. Install `requirements.txt` before running the complete test suite. CI installs these dependencies as well.
+
+The browser changes are local until explicitly committed and pushed with approval; `git pull` on your Mac will not retrieve unpushed changes.
 
 ## Transfer the complete project to your Mac with GitHub
 
@@ -20,10 +73,11 @@ mkdir -p "$HOME/cloudshop-local"
 gh repo clone YOUR_USERNAME/YOUR_PRIVATE_REPOSITORY "$HOME/cloudshop-local/cloudshop"
 cd "$HOME/cloudshop-local/cloudshop"
 python3 --version  # Python 3.11+
+python3 -m pip install -r requirements.txt  # preferably in the virtual environment above
 python3 -m unittest discover -s tests -v
 ```
 
-Keep using this directory for the application commands below. The repository includes both Python projects, examples, tests, documentation, and the existing JavaScript workspace. Python dependencies are all in the standard library; no pip installation is required. API keys, local environment files, dependencies, caches, and generated reports must remain untracked. Ollama models are installed separately on your Mac, not stored in Git.
+Keep using this directory for the application commands below. The repository includes both Python projects, examples, tests, documentation, and the existing JavaScript workspace. The CLI core uses the standard library; install `requirements.txt` for the browser app and complete test suite. API keys, local environment files, dependencies, caches, and generated reports must remain untracked. Ollama models are installed separately on your Mac, not stored in Git.
 
 ## Free local models on macOS (Ollama)
 
@@ -55,7 +109,7 @@ If Ollama is already running with both models installed, skip installation and d
    curl http://localhost:11434/api/tags
    ```
 
-4. Clone the approved private repository as described above. No pip dependencies or virtual environment are required:
+4. Clone the approved private repository as described above. For the full test suite, activate the virtual environment and install `requirements.txt` as described in the browser setup:
 
    ```bash
    cd "$HOME/cloudshop-local/cloudshop"

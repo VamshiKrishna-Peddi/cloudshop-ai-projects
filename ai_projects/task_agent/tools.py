@@ -5,6 +5,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, HTTPSHandler
 
+from .inventory import parse_inventory, render_report
+
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -26,6 +28,13 @@ class Tools:
     def call(self, name: str, args: dict):
         if not isinstance(args, dict):
             raise ValueError("Tool arguments must be an object")
+        if name == "inventory_report":
+            source = self.call("read_file", {"path": args.get("path", "inventory.csv")})
+            items = parse_inventory(source)
+            report = render_report(items)
+            output = args.get("output", "report.md")
+            self.call("write_file", {"path": output, "content": report})
+            return {"report": report, "path": output, "products_requiring_reorder": sum(i.order_quantity > 0 for i in items)}
         if name == "list_files":
             return sorted(str(p.relative_to(self.root)) for p in self.root.rglob("*") if p.is_file() and p.resolve().is_relative_to(self.root))[:200]
         if name == "read_file":
